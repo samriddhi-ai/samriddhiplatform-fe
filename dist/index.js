@@ -17,7 +17,13 @@ const supabaseUrl = process.env.SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? "";
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const authClient = (0, supabase_js_1.createClient)(supabaseUrl, supabaseAnonKey);
-const dbClient = (0, supabase_js_1.createClient)(supabaseUrl, supabaseServiceRoleKey);
+let dbClient = null;
+if (supabaseServiceRoleKey) {
+    dbClient = (0, supabase_js_1.createClient)(supabaseUrl, supabaseServiceRoleKey);
+}
+else {
+    console.warn("WARNING: SUPABASE_SERVICE_ROLE_KEY is missing. Database-connected routes will fail.");
+}
 const rationalQuiz = [
     { id: "q1", answerIndex: 0, concept: "equivalent-fractions" },
     { id: "q2", answerIndex: 1, concept: "comparing-rationals" },
@@ -59,6 +65,10 @@ app.get("/health", (_req, res) => {
     res.json({ ok: true });
 });
 app.get("/subjects", async (_req, res) => {
+    if (!dbClient) {
+        res.status(500).json({ error: "Database client not initialized. Missing SUPABASE_SERVICE_ROLE_KEY." });
+        return;
+    }
     const { data, error } = await dbClient
         .from("subjects")
         .select("id, slug, title, class_level, is_active")
@@ -72,6 +82,10 @@ app.get("/subjects", async (_req, res) => {
 });
 app.get("/subjects/:slug/modules", async (req, res) => {
     const { slug } = req.params;
+    if (!dbClient) {
+        res.status(500).json({ error: "Database client not initialized. Missing SUPABASE_SERVICE_ROLE_KEY." });
+        return;
+    }
     const { data: subject, error: subjectError } = await dbClient
         .from("subjects")
         .select("id")
@@ -100,6 +114,10 @@ app.post("/attempts", authMiddleware, async (req, res) => {
     const score = rationalQuiz.reduce((total, question) => {
         return total + (answers[question.id] === question.answerIndex ? 1 : 0);
     }, 0);
+    if (!dbClient) {
+        res.status(500).json({ error: "Database client not initialized. Missing SUPABASE_SERVICE_ROLE_KEY." });
+        return;
+    }
     const { error } = await dbClient.from("quiz_attempts").insert({
         user_id: req.userId,
         module_id: moduleId,
@@ -113,6 +131,10 @@ app.post("/attempts", authMiddleware, async (req, res) => {
     res.json({ ok: true, score, total: rationalQuiz.length });
 });
 app.get("/progress/me", authMiddleware, async (req, res) => {
+    if (!dbClient) {
+        res.status(500).json({ error: "Database client not initialized. Missing SUPABASE_SERVICE_ROLE_KEY." });
+        return;
+    }
     const { data, error } = await dbClient
         .from("quiz_attempts")
         .select("score")
@@ -130,6 +152,10 @@ app.get("/progress/me", authMiddleware, async (req, res) => {
     res.json({ attemptCount, bestScore, averageScore });
 });
 app.get("/recommendations/me", authMiddleware, async (req, res) => {
+    if (!dbClient) {
+        res.status(500).json({ error: "Database client not initialized. Missing SUPABASE_SERVICE_ROLE_KEY." });
+        return;
+    }
     const { data, error } = await dbClient
         .from("quiz_attempts")
         .select("answers_json")

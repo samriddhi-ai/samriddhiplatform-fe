@@ -3,6 +3,103 @@ import dotenv from "dotenv";
 import express, { NextFunction, Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
 
+export type Database = {
+  public: {
+    Tables: {
+      subjects: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          class_level: number | null;
+          is_active: boolean;
+        };
+        Insert: Partial<{
+          id: string;
+          slug: string;
+          title: string;
+          class_level: number | null;
+          is_active: boolean;
+        }>;
+        Update: Partial<{
+          id: string;
+          slug: string;
+          title: string;
+          class_level: number | null;
+          is_active: boolean;
+        }>;
+        Relationships: any[];
+      };
+      learning_modules: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          difficulty: string | null;
+          content_json: any | null;
+          subject_id: string;
+        };
+        Insert: Partial<{
+          id: string;
+          slug: string;
+          title: string;
+          difficulty: string | null;
+          content_json: any | null;
+          subject_id: string;
+        }>;
+        Update: Partial<{
+          id: string;
+          slug: string;
+          title: string;
+          difficulty: string | null;
+          content_json: any | null;
+          subject_id: string;
+        }>;
+        Relationships: any[];
+      };
+      quiz_attempts: {
+        Row: {
+          id: string;
+          user_id: string;
+          module_id: string;
+          score: number;
+          answers_json: Record<string, number>;
+          completed_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          module_id: string;
+          score: number;
+          answers_json: Record<string, number>;
+          completed_at?: string;
+        };
+        Update: Partial<{
+          id: string;
+          user_id: string;
+          module_id: string;
+          score: number;
+          answers_json: Record<string, number>;
+          completed_at: string;
+        }>;
+        Relationships: any[];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+};
+
 dotenv.config();
 
 const app = express();
@@ -17,10 +114,10 @@ const supabaseUrl = process.env.SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? "";
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey);
-let dbClient: ReturnType<typeof createClient> | null = null;
+const authClient = createClient<Database>(supabaseUrl, supabaseAnonKey);
+let dbClient: ReturnType<typeof createClient<Database>> | null = null;
 if (supabaseServiceRoleKey) {
-  dbClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+  dbClient = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 } else {
   console.warn("WARNING: SUPABASE_SERVICE_ROLE_KEY is missing. Database-connected routes will fail.");
 }
@@ -139,7 +236,7 @@ app.post("/attempts", authMiddleware, async (req: AuthenticatedRequest, res: Res
     return;
   }
   const { error } = await dbClient.from("quiz_attempts").insert({
-    user_id: req.userId,
+    user_id: req.userId!,
     module_id: moduleId,
     score,
     answers_json: answers,
@@ -161,7 +258,7 @@ app.get("/progress/me", authMiddleware, async (req: AuthenticatedRequest, res: R
   const { data, error } = await dbClient
     .from("quiz_attempts")
     .select("score")
-    .eq("user_id", req.userId);
+    .eq("user_id", req.userId!);
 
   if (error) {
     res.status(500).json({ error: error.message });
@@ -187,7 +284,7 @@ app.get("/recommendations/me", authMiddleware, async (req: AuthenticatedRequest,
   const { data, error } = await dbClient
     .from("quiz_attempts")
     .select("answers_json")
-    .eq("user_id", req.userId)
+    .eq("user_id", req.userId!)
     .order("completed_at", { ascending: false });
 
   if (error) {
